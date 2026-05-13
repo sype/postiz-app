@@ -58,6 +58,9 @@ import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integration
 import { RefreshToken } from '@gitroom/nestjs-libraries/integrations/social.abstract';
 import { timer } from '@gitroom/helpers/utils/timer';
 import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
+import { ProviderCredentialService } from '@gitroom/nestjs-libraries/database/prisma/provider-credentials/provider-credential.service';
+import { InjectTokenDto } from '@gitroom/nestjs-libraries/dtos/integrations/inject-token.dto';
+import { UpsertProviderCredentialDto } from '@gitroom/nestjs-libraries/dtos/integrations/upsert-provider-credential.dto';
 
 @ApiTags('Public API')
 @Controller('/public/v1')
@@ -70,7 +73,8 @@ export class PublicIntegrationsController {
     private _mediaService: MediaService,
     private _notificationService: NotificationService,
     private _integrationManager: IntegrationManager,
-    private _refreshIntegrationService: RefreshIntegrationService
+    private _refreshIntegrationService: RefreshIntegrationService,
+    private _providerCredentialService: ProviderCredentialService
   ) {}
 
   @Post('/upload')
@@ -267,8 +271,16 @@ export class PublicIntegrationsController {
     }
 
     try {
+      const orgCreds = await this._providerCredentialService.getByOrgAndProvider(
+        org.id,
+        integration
+      );
+      const clientInfo = orgCreds
+        ? { client_id: orgCreds.clientId, client_secret: orgCreds.clientSecret, instanceUrl: '' }
+        : undefined;
+
       const { codeVerifier, state, url } =
-        await integrationProvider.generateAuthUrl();
+        await integrationProvider.generateAuthUrl(clientInfo);
 
       if (refresh) {
         await ioRedis.set(`refresh:${state}`, refresh, 'EX', 3600);
@@ -504,5 +516,98 @@ export class PublicIntegrationsController {
         throw new HttpException({ msg: 'Unexpected error' }, 500);
       }
     }
+  }
+
+  @Post('/integrations/inject-token')
+  @CheckPolicies([AuthorizationActions.Create, Sections.CHANNEL])
+  async injectToken(
+    @GetOrgFromRequest() org: Organization,
+    @Body() body: InjectTokenDto
+  ) {
+    Sentry.metrics.count('public_api-request', 1);
+
+    if (
+      !this._integrationManager
+        .getAllowedSocialsIntegrations()
+        .includes(body.provider)
+    ) {
+      throw new HttpException({ msg: 'Invalid provider' }, 400);
+    }
+
+    const integrationProvider =
+      this._integrationManager.getSocialIntegration(body.provider);
+
+    const integration =
+      await this._integrationService.createOrUpdateIntegration(
+        undefined,
+        !!integrationProvider.oneTimeToken,
+        org.id,
+        body.name,
+        body.picture,
+        'social',
+        body.internalId,
+        body.provider,
+        body.accessToken,
+        body.refreshToken || '',
+        body.expiresIn || 999999999,
+        body.username
+      );
+
+    await this._refreshIntegrationService.startRefreshWorkflow(
+      org.id,
+      integration.id,
+      integrationProvider
+    );
+
+    return {
+      id: integration.id,
+      name: integration.name,
+      provider: integration.providerIdentifier,
+      internalId: integration.internalId,
+    };
+  }
+
+  @Put('/provider-credentials/:provider')
+  @CheckPolicies([AuthorizationActions.Update, Sections.CHANNEL])
+  async upsertProviderCredential(
+    @GetOrgFromRequest() org: Organization,
+    @Param('provider') provider: string,
+    @Body() body: UpsertProviderCredentialDto
+  ) {
+    Sentry.metrics.count('public_api-request', 1);
+
+    if (
+      !this._integrationManager
+        .getAllowedSocialsIntegrations()
+        .includes(provider)
+    ) {
+      throw new HttpException({ msg: 'Invalid provider' }, 400);
+    }
+
+    await this._providerCredentialService.upsert(
+      org.id,
+      provider,
+      body.clientId,
+      body.clientSecret
+    );
+
+    return { provider, status: 'saved' };
+  }
+
+  @Get('/provider-credentials')
+  async listProviderCredentials(@GetOrgFromRequest() org: Organization) {
+    Sentry.metrics.count('public_api-request', 1);
+    return this._providerCredentialService.listByOrg(org.id);
+  }
+
+  @Delete('/provider-credentials/:provider')
+  @CheckPolicies([AuthorizationActions.Delete, Sections.CHANNEL])
+  async deleteProviderCredential(
+    @GetOrgFromRequest() org: Organization,
+    @Param('provider') provider: string
+  ) {
+    Sentry.metrics.count('public_api-request', 1);
+    await this._providerCredentialService.delete(org.id, provider);
+    return { provider, status: 'deleted' };
   }
 }

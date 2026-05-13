@@ -1,6 +1,7 @@
 import {
   AnalyticsData,
   AuthTokenDetails,
+  ClientInformation,
   PostDetails,
   PostResponse,
   SocialProvider,
@@ -237,10 +238,13 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
     return undefined;
   }
 
-  async refreshToken(refreshToken: string): Promise<AuthTokenDetails> {
+  async refreshToken(refreshToken: string, clientCredentials?: { clientId: string; clientSecret: string }): Promise<AuthTokenDetails> {
+    const clientKey = clientCredentials?.clientId ?? process.env.TIKTOK_CLIENT_ID!;
+    const clientSecret = clientCredentials?.clientSecret ?? process.env.TIKTOK_CLIENT_SECRET!;
+
     const value = {
-      client_key: process.env.TIKTOK_CLIENT_ID!,
-      client_secret: process.env.TIKTOK_CLIENT_SECRET!,
+      client_key: clientKey,
+      client_secret: clientSecret,
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
     };
@@ -282,13 +286,14 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
     };
   }
 
-  async generateAuthUrl() {
+  async generateAuthUrl(clientInformation?: ClientInformation) {
     const state = Math.random().toString(36).substring(2);
+    const tiktokClientId = clientInformation?.client_id ?? process.env.TIKTOK_CLIENT_ID;
 
     return {
       url:
         'https://www.tiktok.com/v2/auth/authorize/' +
-        `?client_key=${process.env.TIKTOK_CLIENT_ID}` +
+        `?client_key=${tiktokClientId}` +
         `&redirect_uri=${encodeURIComponent(
           `${
             process?.env?.FRONTEND_URL?.indexOf('https') === -1
@@ -308,10 +313,13 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
     code: string;
     codeVerifier: string;
     refresh?: string;
-  }) {
+  }, clientInformation?: ClientInformation) {
+    const tiktokClientId = clientInformation?.client_id ?? process.env.TIKTOK_CLIENT_ID!;
+    const tiktokClientSecret = clientInformation?.client_secret ?? process.env.TIKTOK_CLIENT_SECRET!;
+
     const value = {
-      client_key: process.env.TIKTOK_CLIENT_ID!,
-      client_secret: process.env.TIKTOK_CLIENT_SECRET!,
+      client_key: tiktokClientId,
+      client_secret: tiktokClientSecret,
       code: params.code,
       grant_type: 'authorization_code',
       code_verifier: params.codeVerifier,

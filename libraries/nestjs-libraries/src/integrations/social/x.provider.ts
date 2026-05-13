@@ -3,6 +3,7 @@ import { createHmac, randomBytes } from 'crypto';
 import {
   AnalyticsData,
   AuthTokenDetails,
+  ClientInformation,
   PostDetails,
   PostResponse,
   SocialProvider,
@@ -252,10 +253,13 @@ export class XProvider extends SocialAbstract implements SocialProvider {
     };
   }
 
-  async generateAuthUrl() {
+  async generateAuthUrl(clientInformation?: ClientInformation) {
+    const appKey = clientInformation?.client_id ?? process.env.X_API_KEY!;
+    const appSecret = clientInformation?.client_secret ?? process.env.X_API_SECRET!;
+
     const client = new TwitterApi({
-      appKey: process.env.X_API_KEY!,
-      appSecret: process.env.X_API_SECRET!,
+      appKey,
+      appSecret,
     });
     const { url, oauth_token, oauth_token_secret } =
       await client.generateAuthLink(
@@ -274,13 +278,16 @@ export class XProvider extends SocialAbstract implements SocialProvider {
     };
   }
 
-  async authenticate(params: { code: string; codeVerifier: string }) {
+  async authenticate(params: { code: string; codeVerifier: string }, clientInformation?: ClientInformation) {
+    const appKey = clientInformation?.client_id ?? process.env.X_API_KEY!;
+    const appSecret = clientInformation?.client_secret ?? process.env.X_API_SECRET!;
+
     const { code, codeVerifier } = params;
     const [oauth_token, oauth_token_secret] = codeVerifier.split(':');
 
     const startingClient = new TwitterApi({
-      appKey: process.env.X_API_KEY!,
-      appSecret: process.env.X_API_SECRET!,
+      appKey,
+      appSecret,
       accessToken: oauth_token,
       accessSecret: oauth_token_secret,
     });
