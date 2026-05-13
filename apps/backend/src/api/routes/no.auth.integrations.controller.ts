@@ -23,6 +23,7 @@ import {
 } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
 import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
 import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.service';
+import { ProviderCredentialService } from '@gitroom/nestjs-libraries/database/prisma/provider-credentials/provider-credential.service';
 
 @ApiTags('Integrations')
 @Controller('/integrations')
@@ -31,7 +32,8 @@ export class NoAuthIntegrationsController {
     private _integrationManager: IntegrationManager,
     private _integrationService: IntegrationService,
     private _refreshIntegrationService: RefreshIntegrationService,
-    private _organizationService: OrganizationService
+    private _organizationService: OrganizationService,
+    private _providerCredentialService: ProviderCredentialService
   ) {}
 
   @Get('/')
@@ -93,6 +95,19 @@ export class NoAuthIntegrationsController {
       await ioRedis.del(`onboarding:${body.state}`);
     }
 
+    const orgCreds = !details
+      ? await this._providerCredentialService.getByOrgAndProvider(
+          org!.id,
+          integration
+        )
+      : null;
+
+    const clientInfo = details
+      ? JSON.parse(details)
+      : orgCreds
+        ? { client_id: orgCreds.clientId, client_secret: orgCreds.clientSecret, instanceUrl: '' }
+        : undefined;
+
     const {
       error,
       accessToken,
@@ -112,7 +127,7 @@ export class NoAuthIntegrationsController {
             codeVerifier: getCodeVerifier,
             refresh: body.refresh,
           },
-          details ? JSON.parse(details) : undefined
+          clientInfo
         );
 
         if (typeof auth === 'string') {

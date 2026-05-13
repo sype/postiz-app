@@ -33,6 +33,8 @@ import { SetsService } from '@gitroom/nestjs-libraries/database/prisma/sets/sets
 import { SetsRepository } from '@gitroom/nestjs-libraries/database/prisma/sets/sets.repository';
 import { ThirdPartyRepository } from '@gitroom/nestjs-libraries/database/prisma/third-party/third-party.repository';
 import { ThirdPartyService } from '@gitroom/nestjs-libraries/database/prisma/third-party/third-party.service';
+import { ProviderCredentialRepository } from '@gitroom/nestjs-libraries/database/prisma/provider-credentials/provider-credential.repository';
+import { ProviderCredentialService } from '@gitroom/nestjs-libraries/database/prisma/provider-credentials/provider-credential.service';
 import { VideoManager } from '@gitroom/nestjs-libraries/videos/video.manager';
 import { FalService } from '@gitroom/nestjs-libraries/openai/fal.service';
 import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
@@ -86,6 +88,8 @@ import { ErrorsService } from '@gitroom/nestjs-libraries/database/prisma/errors/
     SetsRepository,
     ThirdPartyRepository,
     ThirdPartyService,
+    ProviderCredentialRepository,
+    ProviderCredentialService,
     OAuthRepository,
     OAuthService,
     VideoManager,
