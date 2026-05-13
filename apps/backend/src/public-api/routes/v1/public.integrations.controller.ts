@@ -61,6 +61,10 @@ import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
 import { ProviderCredentialService } from '@gitroom/nestjs-libraries/database/prisma/provider-credentials/provider-credential.service';
 import { InjectTokenDto } from '@gitroom/nestjs-libraries/dtos/integrations/inject-token.dto';
 import { UpsertProviderCredentialDto } from '@gitroom/nestjs-libraries/dtos/integrations/upsert-provider-credential.dto';
+import { CreateConnectLinkDto } from '@gitroom/nestjs-libraries/dtos/integrations/create-connect-link.dto';
+import { AuthService } from '@gitroom/helpers/auth/auth.service';
+import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
+import dayjs from 'dayjs';
 
 @ApiTags('Public API')
 @Controller('/public/v1')
@@ -609,5 +613,25 @@ export class PublicIntegrationsController {
     Sentry.metrics.count('public_api-request', 1);
     await this._providerCredentialService.delete(org.id, provider);
     return { provider, status: 'deleted' };
+  }
+
+  @Post('/connect-links')
+  async createConnectLink(
+    @GetOrgFromRequest() org: Organization,
+    @Body() body: CreateConnectLinkDto
+  ) {
+    Sentry.metrics.count('public_api-request', 1);
+    const hours = body.expiresInHours || 24;
+    const token = AuthService.signJWT({
+      orgId: org.id,
+      linkId: makeId(10),
+      expiresAt: dayjs().add(hours, 'hours').toISOString(),
+    });
+
+    return {
+      token,
+      url: `${process.env.FRONTEND_URL}/connect/${token}`,
+      expiresAt: dayjs().add(hours, 'hours').toISOString(),
+    };
   }
 }
