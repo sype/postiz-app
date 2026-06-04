@@ -122,7 +122,7 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
     const linkedinClientId = clientInformation?.client_id ?? process.env.LINKEDIN_CLIENT_ID;
     const url = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${
       linkedinClientId
-    }&prompt=none&redirect_uri=${encodeURIComponent(
+    }&redirect_uri=${encodeURIComponent(
       `${process.env.FRONTEND_URL}/integrations/social/linkedin`
     )}&state=${state}&scope=${encodeURIComponent(this.scopes.join(' '))}`;
     return {
