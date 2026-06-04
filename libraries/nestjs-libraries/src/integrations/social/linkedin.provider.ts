@@ -26,15 +26,13 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
   oneTimeToken = true;
 
   isBetweenSteps = false;
-  scopes = [
-    'openid',
-    'profile',
-    'w_member_social',
-    'r_basicprofile',
-    'rw_organization_admin',
-    'w_organization_social',
-    'r_organization_social',
-  ];
+  // Minimal scopes for personal-profile posting (Beezzonline / Cloudeefly fork).
+  // Dropped r_basicprofile (replaced by openid+profile via /v2/userinfo) and the
+  // organization scopes (rw_organization_admin / w_organization_social /
+  // r_organization_social) which require LinkedIn's Community Management API
+  // approval. Personal posting only needs identity (openid+profile) + w_member_social.
+  // NOTE: company-Page posting still requires those org scopes — see linkedin.page.provider.ts.
+  scopes = ['openid', 'profile', 'w_member_social'];
   override maxConcurrentJob = 2; // LinkedIn has professional posting limits
   refreshWait = true;
   editor = 'normal' as const;
