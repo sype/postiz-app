@@ -25,11 +25,13 @@ export class LinkedinPageProvider
   override isBetweenSteps = true;
   override refreshWait = true;
   override maxConcurrentJob = 2; // LinkedIn Page has professional posting limits
+  // Dropped r_basicprofile (deprecated, not grantable on new apps, and unused:
+  // identity is fetched via /v2/userinfo with openid+profile). The org scopes
+  // require LinkedIn's Community Management API product on the app.
   override scopes = [
     'openid',
     'profile',
     'w_member_social',
-    'r_basicprofile',
     'rw_organization_admin',
     'w_organization_social',
     'r_organization_social',
