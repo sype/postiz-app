@@ -34,6 +34,7 @@ import { MonitorController } from '@gitroom/backend/api/routes/monitor.controlle
 import { NoAuthIntegrationsController } from '@gitroom/backend/api/routes/no.auth.integrations.controller';
 import { EnterpriseController } from '@gitroom/backend/api/routes/enterprise.controller';
 import { ConnectLinkController } from '@gitroom/backend/api/routes/connect-link.controller';
+import { AdminProvisionController } from '@gitroom/backend/api/routes/admin.provision.controller';
 import { OAuthAppController } from '@gitroom/backend/api/routes/oauth-app.controller';
 import { ApprovedAppsController } from '@gitroom/backend/api/routes/approved-apps.controller';
 import { OAuthController, OAuthAuthorizedController } from '@gitroom/backend/api/routes/oauth.controller';
@@ -78,6 +79,7 @@ const authenticatedController = [
     EnterpriseController,
     NoAuthIntegrationsController,
     ConnectLinkController,
+    AdminProvisionController,
     OAuthController,
     ...authenticatedController,
   ],
