@@ -25,19 +25,40 @@ export class LinkedinPageProvider
   override isBetweenSteps = true;
   override refreshWait = true;
   override maxConcurrentJob = 2; // LinkedIn Page has professional posting limits
-  // Dropped r_basicprofile (deprecated, not grantable on new apps, and unused:
-  // identity is fetched via /v2/userinfo with openid+profile). The org scopes
-  // require LinkedIn's Community Management API product on the app.
+  // linkedin-page uses a SEPARATE LinkedIn app from the personal `linkedin`
+  // provider: LinkedIn's "Community Management API" (org scopes) CANNOT coexist
+  // with "Sign In with OpenID Connect" on the same app. So the page app
+  // (LINKEDIN_PAGE_CLIENT_ID / _SECRET, falling back to LINKEDIN_CLIENT_ID/_SECRET)
+  // has the org scopes but NOT openid/profile — meaning we can't use
+  // /v2/userinfo (openid) or /v2/me (profile) for identity. The intermediate
+  // identity instead comes from the first org the member administers; the full
+  // page list is then offered for selection via companies() (isBetweenSteps).
   override scopes = [
-    'openid',
-    'profile',
-    'w_member_social',
     'rw_organization_admin',
     'w_organization_social',
     'r_organization_social',
   ];
 
   override editor = 'normal' as const;
+
+  private get pageClientId() {
+    return (
+      process.env.LINKEDIN_PAGE_CLIENT_ID || process.env.LINKEDIN_CLIENT_ID!
+    );
+  }
+
+  private get pageClientSecret() {
+    return (
+      process.env.LINKEDIN_PAGE_CLIENT_SECRET ||
+      process.env.LINKEDIN_CLIENT_SECRET!
+    );
+  }
+
+  // Identity for the page app without openid/profile: use the admin org list.
+  private async firstAdminOrg(accessToken: string) {
+    const orgs = await this.companies(accessToken);
+    return orgs?.[0];
+  }
 
   override async refreshToken(
     refresh_token: string
@@ -55,40 +76,23 @@ export class LinkedinPageProvider
         body: new URLSearchParams({
           grant_type: 'refresh_token',
           refresh_token,
-          client_id: process.env.LINKEDIN_CLIENT_ID!,
-          client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
+          client_id: this.pageClientId,
+          client_secret: this.pageClientSecret,
         }),
       })
     ).json();
 
-    const { vanityName } = await (
-      await fetch('https://api.linkedin.com/v2/me', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-    ).json();
-
-    const {
-      name,
-      sub: id,
-      picture,
-    } = await (
-      await fetch('https://api.linkedin.com/v2/userinfo', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-    ).json();
+    // No openid/profile on the page app → identity from the admin org list.
+    const org = await this.firstAdminOrg(accessToken);
 
     return {
-      id,
+      id: org?.id || '',
       accessToken,
       refreshToken,
       expiresIn: expires_in,
-      name,
-      picture,
-      username: vanityName,
+      name: org?.name || '',
+      picture: org?.picture,
+      username: org?.username || '',
     };
   }
 
@@ -126,7 +130,7 @@ export class LinkedinPageProvider
     const state = makeId(6);
     const codeVerifier = makeId(30);
     const url = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${
-      process.env.LINKEDIN_CLIENT_ID
+      this.pageClientId
     }&redirect_uri=${encodeURIComponent(
       `${process.env.FRONTEND_URL}/integrations/social/linkedin-page`
     )}&state=${state}&scope=${encodeURIComponent(this.scopes.join(' '))}`;
@@ -215,8 +219,8 @@ export class LinkedinPageProvider
       'redirect_uri',
       `${process.env.FRONTEND_URL}/integrations/social/linkedin-page`
     );
-    body.append('client_id', process.env.LINKEDIN_CLIENT_ID!);
-    body.append('client_secret', process.env.LINKEDIN_CLIENT_SECRET!);
+    body.append('client_id', this.pageClientId);
+    body.append('client_secret', this.pageClientSecret);
 
     const {
       access_token: accessToken,
@@ -235,34 +239,19 @@ export class LinkedinPageProvider
 
     this.checkScopes(this.scopes, scope);
 
-    const {
-      name,
-      sub: id,
-      picture,
-    } = await (
-      await fetch('https://api.linkedin.com/v2/userinfo', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-    ).json();
-
-    const { vanityName } = await (
-      await fetch('https://api.linkedin.com/v2/me', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      })
-    ).json();
+    // The page app has no openid/profile → the intermediate identity is the
+    // first org the member administers. The full list is offered next via
+    // companies() (isBetweenSteps), so the user picks the right page.
+    const org = await this.firstAdminOrg(accessToken);
 
     return {
-      id: id,
+      id: org?.id || '',
       accessToken,
       refreshToken,
       expiresIn,
-      name,
-      picture,
-      username: vanityName,
+      name: org?.name || '',
+      picture: org?.picture,
+      username: org?.username || '',
     };
   }
 
