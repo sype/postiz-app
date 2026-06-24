@@ -634,4 +634,27 @@ export class PublicIntegrationsController {
       expiresAt: dayjs().add(hours, 'hours').toISOString(),
     };
   }
+
+  // Public analytics (mt8): expose the provider engagement metrics that the
+  // authenticated AnalyticsController returns, but via the org API key so
+  // external apps (e.g. the Plumeza Agency Platform) can read likes/reach.
+  @Get('/integrations/:id/analytics')
+  async integrationAnalyticsPublic(
+    @GetOrgFromRequest() org: Organization,
+    @Param('id') id: string,
+    @Query('date') date: string
+  ) {
+    Sentry.metrics.count('public_api-request', 1);
+    return this._integrationService.checkAnalytics(org, id, date || '7');
+  }
+
+  @Get('/posts/:id/analytics')
+  async postAnalyticsPublic(
+    @GetOrgFromRequest() org: Organization,
+    @Param('id') id: string,
+    @Query('date') date: string
+  ) {
+    Sentry.metrics.count('public_api-request', 1);
+    return this._postsService.checkPostAnalytics(org.id, id, +(date || '7'));
+  }
 }
