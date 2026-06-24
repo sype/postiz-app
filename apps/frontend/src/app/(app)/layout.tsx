@@ -23,6 +23,7 @@ import {
 import { HtmlComponent } from '@gitroom/frontend/components/layout/html.component';
 import Script from 'next/script';
 import { ChangeDirClient } from '@gitroom/frontend/components/new-layout/change.dir.client';
+import { SourceCodeLink } from '@gitroom/frontend/components/layout/source-code-link.component';
 
 const jakartaSans = Plus_Jakarta_Sans({
   weight: ['600', '500'],
@@ -106,6 +107,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
                 <LayoutContext>
                   <UtmSaver />
                   {children}
+                  {/* AGPL-3.0 §13: offer Corresponding Source of this modified version */}
+                  <SourceCodeLink />
                 </LayoutContext>
               </PHProvider>
             </Plausible>
