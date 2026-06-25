@@ -1,4 +1,4 @@
-import { Controller, Get, HttpException, Param } from '@nestjs/common';
+import { Controller, Get, HttpException, Param, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
@@ -61,7 +61,10 @@ export class ConnectLinkController {
   @Get('/:token/social/:integration')
   async getOAuthUrl(
     @Param('token') token: string,
-    @Param('integration') integration: string
+    @Param('integration') integration: string,
+    // mt9: optional branded return URL (e.g. the Plumeza connect page). Falls
+    // back to the Postiz frontend. Only http(s) accepted to avoid odd schemes.
+    @Query('redirectUrl') redirectUrl?: string
   ) {
     const { orgId } = this.validateToken(token);
 
@@ -99,14 +102,14 @@ export class ConnectLinkController {
     const { codeVerifier, state, url } =
       await integrationProvider.generateAuthUrl(clientInfo);
 
+    const base =
+      redirectUrl && /^https?:\/\//.test(redirectUrl)
+        ? redirectUrl
+        : `${process.env.FRONTEND_URL}/connect/${token}`;
+
     await ioRedis.set(`organization:${state}`, orgId, 'EX', 3600);
     await ioRedis.set(`login:${state}`, codeVerifier, 'EX', 3600);
-    await ioRedis.set(
-      `redirect:${state}`,
-      `${process.env.FRONTEND_URL}/connect/${token}?success=${integration}`,
-      'EX',
-      3600
-    );
+    await ioRedis.set(`redirect:${state}`, `${base}?success=${integration}`, 'EX', 3600);
 
     return { url };
   }
