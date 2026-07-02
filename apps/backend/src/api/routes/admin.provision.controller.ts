@@ -59,6 +59,31 @@ export class AdminProvisionController {
       throw new UnauthorizedException('Invalid admin token');
     }
 
+    // Idempotent: a LOCAL user with this email may already exist (client
+    // provisioned before, or a Cloudeefly account deleted & re-created). Return
+    // the existing org + apiKey instead of failing on the unique
+    // (email, providerName) constraint with a 500.
+    const existingUser = await this._usersService.getUserByEmail(body.email);
+    if (existingUser) {
+      const orgs = await this._organizationService.getOrgsByUserId(
+        existingUser.id
+      );
+      const existingOrg = orgs?.[0];
+      if (existingOrg) {
+        const fullExisting = await this._organizationService.getOrgById(
+          existingOrg.id
+        );
+        return {
+          organizationId: existingOrg.id,
+          userId: existingUser.id,
+          email: body.email,
+          password: '', // existing user — password is not reissued
+          apiKey: fullExisting?.apiKey,
+          existing: true,
+        };
+      }
+    }
+
     const password = makeId(14);
     const org = await this._organizationService.createOrgAndUser(
       {
