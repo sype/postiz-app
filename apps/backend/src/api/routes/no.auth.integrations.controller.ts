@@ -299,7 +299,11 @@ export class NoAuthIntegrationsController {
     }
 
     const returnURL = await ioRedis.get(`redirect:${body.state}`);
-    if (returnURL) {
+    // For two-step providers (page/company selection) keep the redirect until
+    // the final "save" step (saveProviderPage) so the client is still
+    // redirected back after picking the page. Single-step providers consume it
+    // now (the redirect happens immediately from this response).
+    if (returnURL && !integrationProvider.isBetweenSteps) {
       await ioRedis.del(`redirect:${body.state}`);
     }
 
@@ -334,7 +338,19 @@ export class NoAuthIntegrationsController {
 
     const org = await this._organizationService.getOrgById(organization);
 
-    return this._integrationService.saveProviderPage(org.id, id, body);
+    const result = await this._integrationService.saveProviderPage(org.id, id, body);
+
+    // Return the branded redirect URL (kept from the connect-link flow) so the
+    // client is sent back to the connect page after saving the selected page.
+    const returnURL = await ioRedis.get(`redirect:${body.state}`);
+    if (returnURL) {
+      await ioRedis.del(`redirect:${body.state}`);
+    }
+
+    return {
+      ...(result && typeof result === 'object' ? result : { result }),
+      ...(returnURL ? { returnURL } : {}),
+    };
   }
 
   @Post('/extension-refresh')

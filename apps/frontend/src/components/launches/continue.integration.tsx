@@ -219,23 +219,27 @@ export const ContinueIntegration: FC<{
           body: JSON.stringify({ ...modifiedParams, ...data }),
         });
 
+        const saveData = await response.json().catch(() => ({} as any));
+
         if (
           response.status !== HttpStatusCode.Ok &&
           response.status !== HttpStatusCode.Created
         ) {
-          const errorData = await response.json().catch(() => ({}));
           setErrorMessage(
-            errorData.message || 'Failed to save channel configuration'
+            saveData?.message || 'Failed to save channel configuration'
           );
           setError(true);
           return;
         }
 
+        // Prefer the returnURL from the save response (freshly read from Redis at
+        // the final step) and fall back to the one captured on the first call —
+        // so two-step providers (LinkedIn page, Facebook…) reliably redirect back.
         navigateOrShow(
           `/launches?added=${provider}&msg=Channel Added${
             twoStepState.onboarding ? '&onboarding=true' : ''
           }`,
-          twoStepState.returnURL,
+          saveData?.returnURL || twoStepState.returnURL,
           'Channel Added'
         );
       } finally {
