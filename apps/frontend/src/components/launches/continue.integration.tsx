@@ -43,9 +43,10 @@ export const ContinueIntegration: FC<{
   const navigateOrShow = useCallback(
     (path: string, returnURL: string | undefined, successMessage: string) => {
       if (returnURL) {
-        // If returnURL exists, always redirect to it with the path params
+        // If returnURL exists, always leave Postiz and redirect to the branded flow.
         const params = path.includes('?') ? path.split('?')[1] : '';
-        push(params ? `${returnURL}?${params}` : returnURL);
+        const sep = returnURL.includes('?') ? '&' : '?';
+        window.location.href = params ? `${returnURL}${sep}${params}` : returnURL;
       } else if (logged) {
         // If logged in without returnURL, use normal navigation
         push(path);
@@ -210,7 +211,7 @@ export const ContinueIntegration: FC<{
 
       try {
         // Use public or authenticated endpoint based on the flow
-        const endpoint = logged
+        const endpoint = logged && !twoStepState.returnURL
           ? `/integrations/provider/${twoStepState.integrationId}/connect`
           : `/integrations/public/provider/${twoStepState.integrationId}/connect`;
 
