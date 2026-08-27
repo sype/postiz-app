@@ -13,14 +13,14 @@ Current validation notes:
   - `Post`: 19
   - `Integration`: 20
 
-Use `postiz-image-mt12-patch.yaml` to align the Barbados deployment image.
+Use `postiz-image-mt13-patch.yaml` to deploy the YouTube connect-link redirect
+fix on Barbados.
 
 ```bash
 kubectl -n internal-postiz patch deployment postiz \
   --type merge \
-  --patch-file deploy/k8s-barbados/postiz-image-mt12-patch.yaml
+  --patch-file deploy/k8s-barbados/postiz-image-mt13-patch.yaml
 
 kubectl -n internal-postiz rollout status deployment/postiz
 kubectl -n internal-postiz get deploy postiz -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
 ```
-
