@@ -9,12 +9,30 @@ import {
 import dayjs from 'dayjs';
 import {
   BadBody,
+  RefreshToken,
   SocialAbstract,
 } from '@gitroom/nestjs-libraries/integrations/social.abstract';
 import { TikTokDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/tiktok.dto';
 import { timer } from '@gitroom/helpers/utils/timer';
 import { Integration } from '@prisma/client';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
+import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
+
+export interface TikTokCreatorInfo {
+  creatorAvatarUrl: string;
+  creatorNickname: string;
+  creatorUsername: string;
+  privacyLevelOptions: Array<
+    | 'PUBLIC_TO_EVERYONE'
+    | 'MUTUAL_FOLLOW_FRIENDS'
+    | 'FOLLOWER_OF_CREATOR'
+    | 'SELF_ONLY'
+  >;
+  commentDisabled: boolean;
+  duetDisabled: boolean;
+  stitchDisabled: boolean;
+  maxVideoPostDurationSeconds: number;
+}
 
 @Rules(
   'TikTok can have one video or one picture or multiple pictures, it cannot be without an attachment'
@@ -369,24 +387,75 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
     };
   }
 
-  async maxVideoLength(accessToken: string) {
-    const {
-      data: { max_video_post_duration_sec },
-    } = await (
-      await fetch(
-        'https://open.tiktokapis.com/v2/post/publish/creator_info/query/',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json; charset=UTF-8',
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      )
-    ).json();
+  @Tool({
+    description:
+      'Get the current TikTok creator identity and Direct Post capabilities',
+    dataSchema: [],
+  })
+  async creatorInfo(accessToken: string): Promise<TikTokCreatorInfo> {
+    const response = await this.fetch(
+      'https://open.tiktokapis.com/v2/post/publish/creator_info/query/',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+      'tiktok-creator-info',
+      0,
+      true
+    );
+    const payload = (await response.json()) as {
+      data?: {
+        creator_avatar_url?: string;
+        creator_nickname?: string;
+        creator_username?: string;
+        privacy_level_options?: TikTokCreatorInfo['privacyLevelOptions'];
+        comment_disabled?: boolean;
+        duet_disabled?: boolean;
+        stitch_disabled?: boolean;
+        max_video_post_duration_sec?: number;
+      };
+      error?: { code?: string; message?: string };
+    };
+    if (payload.error?.code && payload.error.code !== 'ok') {
+      const serialized = JSON.stringify(payload);
+      const handled = this.handleErrors(serialized);
+      if (handled?.type === 'refresh-token') {
+        throw new RefreshToken(
+          'tiktok-creator-info',
+          serialized,
+          '{}',
+          handled.value
+        );
+      }
+      throw new BadBody(
+        'tiktok-creator-info',
+        serialized,
+        '{}',
+        handled?.value || payload.error.message || 'TikTok creator info failed'
+      );
+    }
+    const data = payload.data ?? {};
 
     return {
-      maxDurationSeconds: max_video_post_duration_sec,
+      creatorAvatarUrl: data.creator_avatar_url ?? '',
+      creatorNickname: data.creator_nickname ?? '',
+      creatorUsername: data.creator_username ?? '',
+      privacyLevelOptions: data.privacy_level_options ?? [],
+      commentDisabled: data.comment_disabled ?? true,
+      duetDisabled: data.duet_disabled ?? true,
+      stitchDisabled: data.stitch_disabled ?? true,
+      maxVideoPostDurationSeconds: data.max_video_post_duration_sec ?? 0,
+    };
+  }
+
+  async maxVideoLength(accessToken: string) {
+    const creatorInfo = await this.creatorInfo(accessToken);
+
+    return {
+      maxDurationSeconds: creatorInfo.maxVideoPostDurationSeconds,
     };
   }
 
