@@ -3,4 +3,4 @@ spec:
     spec:
       containers:
         - name: postiz
-          image: ghcr.io/sype/postiz-app:v1.0.0-mt12
+          image: ghcr.io/sype/postiz-app:v1.0.0-mt14
