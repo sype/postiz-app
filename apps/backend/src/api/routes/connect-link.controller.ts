@@ -23,12 +23,14 @@ export class ConnectLinkController {
     orgId: string;
     linkId: string;
     provider?: string;
+    pickInApp?: boolean;
   } {
     try {
       const payload = AuthService.verifyJWT(token) as {
         orgId: string;
         linkId: string;
         provider?: string;
+        pickInApp?: boolean;
         expiresAt: string;
       };
 
@@ -44,6 +46,7 @@ export class ConnectLinkController {
         orgId: payload.orgId,
         linkId: payload.linkId,
         provider: payload.provider?.toLowerCase(),
+        ...(payload.pickInApp === true ? { pickInApp: true } : {}),
       };
     } catch (err) {
       if (err instanceof HttpException) throw err;
@@ -86,7 +89,7 @@ export class ConnectLinkController {
     // Omission explicitly retains the native Postiz connect-link flow.
     @Query('redirectUrl') redirectUrl?: string
   ) {
-    const { orgId, linkId, provider: linkProvider } = this.validateToken(token);
+    const { orgId, linkId, provider: linkProvider, pickInApp } = this.validateToken(token);
     const normalizedIntegration = integration.toLowerCase();
     if (linkProvider && normalizedIntegration !== linkProvider) {
       throw new HttpException({ msg: 'Integration not allowed for this link' }, 403);
@@ -148,6 +151,7 @@ export class ConnectLinkController {
       provider: integration,
       providerScoped: !!linkProvider,
       returnURL,
+      ...(pickInApp ? { pickInApp: true } : {}),
     };
     if (linkProvider) {
       await ioRedis.set(
