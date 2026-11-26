@@ -36,6 +36,14 @@ export class OrganizationService {
     return this._organizationRepository.createMaxUser(id, name, saasName, email);
   }
 
+  upsertMember(orgId: string, userId: string, role: 'ADMIN' | 'USER') {
+    return this._organizationRepository.upsertMember(orgId, userId, role);
+  }
+
+  removeMember(orgId: string, userId: string) {
+    return this._organizationRepository.removeMember(orgId, userId);
+  }
+
   addUserToOrg(
     userId: string,
     id: string,
